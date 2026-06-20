@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mbee CyberShield — IP Address Scanner | Network Intelligence</title>
+<meta name="description" content="Professional IP address scanner by mbee CyberShield. Get instant geolocation, ISP, ASN, and network intelligence for any IPv4 or IPv6 address.">
+<meta name="author" content="mbee CyberShield">
+<meta property="og:title" content="mbee CyberShield — IP Address Scanner">
+<meta property="og:description" content="Premium network intelligence and IP geolocation tool.">
+<meta property="og:type" content="website">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+
+<!-- Leaflet for map -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer=""></script>
+
+<!-- jsPDF for PDF export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer=""></script>
+
+<style>
+/* =====================================================
+   DESIGN TOKENS — mbee CyberShield
+   ===================================================== */
+:root[data-theme="dark"]{
+  --bg: #07090d;
+  --bg-elev: #0c1118;
+  --surface: #111723;
+  --surface-2: #161f2e;
+  --border: rgba(0, 229, 255, 0.12);
+  --border-strong: rgba(0, 229, 255, 0.28);
+  --text: #e6edf6;
+  --text-dim: #8a96a7;
+  --text-muted: #5f6b7c;
+  --primary: #00e5ff;
+  --primary-2: #00b3ff;
+  --accent: #7c4dff;
+  --success: #00e676;
+  --warn: #ffb300;
+  --danger: #ff3d6e;
+  --shadow-glow: 0 0 40px rgba(0, 229, 255, 0.15);
+  --gradient-primary: linear-gradient(135deg, #00e5ff 0%, #7c4dff 100%);
+  --gradient-bg: radial-gradient(1200px 600px at 80% -10%, rgba(124,77,255,.18), transparent 60%),
+                 radial-gradient(900px 500px at -10% 20%, rgba(0,229,255,.15), transparent 60%);
+  --grid-color: rgba(0, 229, 255, 0.05);
+}
+:root[data-theme="light"]{
+  --bg: #f4f7fb;
+  --bg-elev: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f0f4fa;
+  --border: rgba(10, 30, 60, 0.1);
+  --border-strong: rgba(10, 30, 60, 0.2);
+  --text: #0d1421;
+  --text-dim: #4a5668;
+  --text-muted: #7a8699;
+  --primary: #0066ff;
+  --primary-2: #00a8ff;
+  --accent: #6a3df0;
+  --success: #00a85a;
+  --warn: #e69500;
+  --danger: #e02b59;
+  --shadow-glow: 0 10px 40px rgba(0, 102, 255, 0.12);
+  --gradient-primary: linear-gradient(135deg, #0066ff 0%, #6a3df0 100%);
+  --gradient-bg: radial-gradient(1200px 600px at 80% -10%, rgba(106,61,240,.08), transparent 60%),
+                 radial-gradient(900px 500px at -10% 20%, rgba(0,102,255,.08), transparent 60%);
+  --grid-color: rgba(10, 30, 60, 0.04);
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Space Grotesk', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  background-image: var(--gradient-bg);
+  background-attachment: fixed;
+  color: var(--text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+body::before{
+  content:"";
+  position: fixed; inset:0;
+  background-image:
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events:none;
+  z-index:0;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+}
+
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+.mono{font-family:'JetBrains Mono', ui-monospace, monospace}
+
+/* =====================================================
+   LAYOUT
+   ===================================================== */
+.container{max-width:1240px;margin:0 auto;padding:0 24px;position:relative;z-index:1}
+
+/* =====================================================
+   HEADER
+   ===================================================== */
+.header{
+  position:sticky;top:0;z-index:50;
+  backdrop-filter: blur(16px);
+  background: color-mix(in oklab, var(--bg) 75%, transparent);
+  border-bottom: 1px solid var(--border);
+}
+.header-inner{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 0;gap:16px;
+}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{
+  width:42px;height:42px;border-radius:12px;
+  background: var(--gradient-primary);
+  display:grid;place-items:center;
+  box-shadow: 0 0 24px rgba(0,229,255,.35);
+  flex-shrink:0;
+  position:relative;
+}
+.logo svg{width:22px;height:22px;color:#fff}
+.logo::after{
+  content:"";position:absolute;inset:-2px;border-radius:14px;
+  background: var(--gradient-primary); opacity:.35; filter:blur(10px); z-index:-1;
+}
+.brand-text{display:flex;flex-direction:column;min-width:0}
+.brand-name{font-weight:700;font-size:18px;letter-spacing:.2px;line-height:1.1;white-space:nowrap}
+.brand-tag{font-size:11px;color:var(--text-dim);letter-spacing:1.5px;text-transform:uppercase}
+
+.nav{display:flex;align-items:center;gap:28px}
+.nav a{color:var(--text-dim);font-size:14px;font-weight:500;transition:color .2s}
+.nav a:hover{color:var(--primary)}
+.nav-meta{display:flex;align-items:center;gap:16px}
+.contact-chip{
+  display:none;align-items:center;gap:8px;
+  font-size:12px;color:var(--text-dim);
+  padding:8px 12px;border:1px solid var(--border);border-radius:999px;
+}
+.contact-chip svg{width:14px;height:14px;color:var(--primary)}
+.theme-toggle{
+  width:38px;height:38px;border-radius:10px;
+  border:1px solid var(--border);
+  display:grid;place-items:center;
+  transition: all .2s;
+}
+.theme-toggle:hover{border-color:var(--border-strong);color:var(--primary)}
+.theme-toggle svg{width:18px;height:18px}
+
+@media(min-width:900px){.contact-chip{display:inline-flex}}
+@media(max-width:768px){.nav a{display:none}}
+
+/* =====================================================
+   HERO
+   ===================================================== */
+.hero{padding:80px 0 60px;text-align:center;position:relative}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 14px;border:1px solid var(--border-strong);
+  border-radius:999px;background:var(--surface);
+  font-size:12px;color:var(--text-dim);letter-spacing:1.2px;text-transform:uppercase;font-weight:500;
+  margin-bottom:24px;
+}
+.pulse-dot{
+  width:8px;height:8px;border-radius:50%;background:var(--success);
+  box-shadow:0 0 0 0 rgba(0,230,118,.7);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse{
+  0%{box-shadow:0 0 0 0 rgba(0,230,118,.7)}
+  70%{box-shadow:0 0 0 12px rgba(0,230,118,0)}
+  100%{box-shadow:0 0 0 0 rgba(0,230,118,0)}
+}
+.hero h1{
+  font-size: clamp(36px, 6vw, 64px);
+  line-height:1.05;font-weight:700;margin:0 0 20px;letter-spacing:-1.5px;
+}
+.hero h1 .gradient{
+  background: var(--gradient-primary);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.hero p.lead{
+  max-width:680px;margin:0 auto 40px;font-size:18px;color:var(--text-dim);
+}
+.hero-stats{
+  display:flex;flex-wrap:wrap;justify-content:center;gap:32px;
+  padding-top:32px;border-top:1px solid var(--border);max-width:720px;margin:48px auto 0;
+}
+.stat{display:flex;flex-direction:column;align-items:center;gap:4px}
+.stat-num{font-size:24px;font-weight:700;color:var(--primary)}
+.stat-lbl{font-size:12px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase}
+
+/* =====================================================
+   SCANNER
+   ===================================================== */
+.scanner{padding:20px 0 80px}
+.scanner-card{
+  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+  border:1px solid var(--border);
+  border-radius:24px;padding:32px;
+  box-shadow: var(--shadow-glow);
+  position:relative;overflow:hidden;
+}
+.scanner-card::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:1px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+}
+.scanner-header{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.scanner-title{font-size:14px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-dim)}
+.scanner-status{
+  margin-left:auto;display:flex;align-items:center;gap:6px;
+  font-size:12px;color:var(--success);
+}
+
+.scan-form{display:flex;gap:12px;flex-wrap:wrap}
+.input-wrap{flex:1;min-width:240px;position:relative}
+.input-wrap svg{
+  position:absolute;left:18px;top:50%;transform:translateY(-50%);
+  width:18px;height:18px;color:var(--text-muted);pointer-events:none;
+}
+.scan-input{
+  width:100%;padding:18px 18px 18px 48px;
+  background:var(--bg-elev);
+  border:1px solid var(--border-strong);
+  border-radius:14px;color:var(--text);
+  font-size:16px;font-family:'JetBrains Mono', monospace;
+  transition: all .2s;outline:none;
+}
+.scan-input:focus{
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 20%, transparent);
+}
+.scan-input::placeholder{color:var(--text-muted)}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:18px 28px;border-radius:14px;font-weight:600;font-size:15px;
+  transition: all .2s;letter-spacing:.3px;
+  white-space:nowrap;
+}
+.btn-primary{
+  background: var(--gradient-primary);
+  color:#fff;
+  box-shadow: 0 8px 24px -8px rgba(0,229,255,.6);
+}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 12px 32px -8px rgba(0,229,255,.8)}
+.btn-primary:active{transform:translateY(0)}
+.btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.btn-secondary{
+  background:var(--surface-2);border:1px solid var(--border-strong);color:var(--text);
+}
+.btn-secondary:hover{border-color:var(--primary);color:var(--primary)}
+.btn-ghost{padding:10px 16px;font-size:13px;color:var(--text-dim);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--primary);border-color:var(--border-strong)}
+
+.examples{
+  display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap;
+  font-size:13px;color:var(--text-muted);
+}
+.example-chip{
+  padding:6px 12px;border:1px dashed var(--border-strong);border-radius:999px;
+  font-family:'JetBrains Mono', monospace;font-size:12px;
+  background: var(--bg-elev);color:var(--text-dim);
+  transition: all .15s;
+}
+.example-chip:hover{color:var(--primary);border-color:var(--primary);border-style:solid}
+
+.error-msg{
+  margin-top:16px;padding:14px 18px;
+  background: color-mix(in oklab, var(--danger) 12%, transparent);
+  border:1px solid color-mix(in oklab, var(--danger) 40%, transparent);
+  color:var(--danger);border-radius:12px;font-size:14px;
+  display:none;align-items:center;gap:10px;
+  animation: fadeIn .3s;
+}
+.error-msg.show{display:flex}
+
+/* Loading */
+.loader{
+  display:none;flex-direction:column;align-items:center;gap:24px;padding:60px 20px;
+}
+.loader.show{display:flex;animation:fadeIn .3s}
+.scanner-anim{
+  width:120px;height:120px;position:relative;
+}
+.scanner-anim::before, .scanner-anim::after{
+  content:"";position:absolute;inset:0;border-radius:50%;
+  border:2px solid transparent;border-top-color:var(--primary);
+  animation: spin 1.2s linear infinite;
+}
+.scanner-anim::after{
+  inset:14px;border-top-color:var(--accent);
+  animation-direction: reverse;animation-duration:1.6s;
+}
+.scanner-anim .core{
+  position:absolute;inset:30px;border-radius:50%;
+  background: var(--gradient-primary);
+  display:grid;place-items:center;color:#fff;
+  animation: pulse-core 1.5s ease-in-out infinite;
+  box-shadow: 0 0 30px var(--primary);
+}
+.scanner-anim .core svg{width:24px;height:24px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse-core{0%,100%{transform:scale(1)}50%{transform:scale(.85)}}
+.loader-text{font-family:'JetBrains Mono', monospace;font-size:13px;color:var(--text-dim);text-align:center}
+.loader-text .blink{animation: blink 1s infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* =====================================================
+   RESULTS
+   ===================================================== */
+.results{display:none;margin-top:32px;animation: slideUp .5s}
+.results.show{display:block}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+.results-header{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin-bottom:20px;flex-wrap:wrap;
+}
+.results-ip{display:flex;align-items:center;gap:12px;min-width:0}
+.results-ip-badge{
+  padding:6px 10px;background:var(--gradient-primary);color:#fff;
+  border-radius:8px;font-size:11px;font-weight:700;letter-spacing:1px;
+}
+.results-ip-val{font-family:'JetBrains Mono', monospace;font-size:18px;font-weight:600;word-break:break-all}
+.results-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+.result-grid{
+  display:grid;grid-template-columns: repeat(auto-fit, minmax(220px,1fr));
+  gap:14px;margin-bottom:20px;
+}
+.info-card{
+  background: var(--bg-elev);
+  border:1px solid var(--border);
+  border-radius:14px;padding:18px;
+  transition: all .2s;position:relative;overflow:hidden;
+}
+.info-card:hover{border-color:var(--border-strong);transform:translateY(-2px)}
+.info-card-label{
+  font-size:11px;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--text-muted);font-weight:600;margin-bottom:8px;
+  display:flex;align-items:center;gap:6px;
+}
+.info-card-label svg{width:13px;height:13px;color:var(--primary)}
+.info-card-val{font-size:16px;font-weight:600;color:var(--text);word-break:break-word}
+
+.result-section-title{
+  font-size:13px;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--text-dim);font-weight:600;margin:24px 0 12px;
+  display:flex;align-items:center;gap:8px;
+}
+.result-section-title::after{
+  content:"";flex:1;height:1px;background:var(--border);
+}
+
+.result-table{
+  width:100%;border-collapse:collapse;
+  background: var(--bg-elev);border:1px solid var(--border);
+  border-radius:14px;overflow:hidden;
+}
+.result-table th, .result-table td{
+  padding:14px 18px;text-align:left;font-size:14px;
+  border-bottom:1px solid var(--border);
+}
+.result-table tr:last-child th, .result-table tr:last-child td{border-bottom:none}
+.result-table th{
+  color:var(--text-muted);font-weight:500;width:40%;
+  letter-spacing:.3px;
+}
+.result-table td{color:var(--text);font-family:'JetBrains Mono', monospace;word-break:break-all}
+@media(max-width:560px){
+  .result-table th, .result-table td{padding:12px 14px;font-size:13px;display:block;width:100%}
+  .result-table th{padding-bottom:4px;border:none;color:var(--text-muted)}
+  .result-table td{padding-top:0;border-bottom:1px solid var(--border)}
+}
+
+#map{
+  height:320px;border-radius:14px;border:1px solid var(--border);overflow:hidden;
+  background:var(--bg-elev);
+}
+.leaflet-container{background:var(--bg-elev) !important}
+
+/* =====================================================
+   FEATURES
+   ===================================================== */
+.section{padding:80px 0;position:relative}
+.section-head{text-align:center;max-width:680px;margin:0 auto 56px}
+.section-head .eyebrow{margin-bottom:16px}
+.section-head h2{
+  font-size: clamp(28px, 4vw, 42px);
+  margin:0 0 16px;font-weight:700;letter-spacing:-1px;line-height:1.15;
+}
+.section-head p{color:var(--text-dim);font-size:17px;margin:0}
+
+.feature-grid{
+  display:grid;grid-template-columns: repeat(auto-fit, minmax(260px,1fr));gap:18px;
+}
+.feature{
+  padding:28px;border:1px solid var(--border);border-radius:18px;
+  background: var(--surface);transition:all .25s;position:relative;overflow:hidden;
+}
+.feature::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:2px;
+  background: var(--gradient-primary);transform:scaleX(0);transform-origin:left;
+  transition: transform .3s;
+}
+.feature:hover{transform:translateY(-4px);border-color:var(--border-strong)}
+.feature:hover::before{transform:scaleX(1)}
+.feature-icon{
+  width:48px;height:48px;border-radius:12px;
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+  display:grid;place-items:center;color:var(--primary);margin-bottom:18px;
+}
+.feature-icon svg{width:24px;height:24px}
+.feature h3{font-size:18px;margin:0 0 8px;font-weight:600}
+.feature p{margin:0;color:var(--text-dim);font-size:14px;line-height:1.6}
+
+/* =====================================================
+   ABOUT
+   ===================================================== */
+.about{
+  background: var(--surface);
+  border:1px solid var(--border);border-radius:24px;padding:48px;
+  display:grid;grid-template-columns: 1fr 1fr;gap:48px;align-items:center;
+}
+@media(max-width:860px){.about{grid-template-columns:1fr;padding:32px}}
+.about h2{font-size: clamp(26px, 3.5vw, 36px);margin:0 0 16px;letter-spacing:-.5px}
+.about p{color:var(--text-dim);margin:0 0 16px;font-size:15px}
+.about-list{list-style:none;padding:0;margin:24px 0 0;display:grid;gap:12px}
+.about-list li{display:flex;align-items:flex-start;gap:12px;font-size:14px}
+.about-list svg{width:18px;height:18px;color:var(--success);flex-shrink:0;margin-top:2px}
+.about-visual{
+  aspect-ratio: 1; max-width:380px;margin:0 auto;
+  border-radius:24px;background: var(--bg-elev);
+  border:1px solid var(--border);
+  position:relative;overflow:hidden;display:grid;place-items:center;
+}
+.shield-vis{
+  width:140px;height:140px;border-radius:50%;
+  background: var(--gradient-primary);display:grid;place-items:center;
+  box-shadow: 0 0 60px var(--primary);position:relative;z-index:2;
+}
+.shield-vis svg{width:64px;height:64px;color:#fff}
+.about-visual::before, .about-visual::after{
+  content:"";position:absolute;border-radius:50%;
+  border:1px solid var(--border-strong);
+}
+.about-visual::before{inset:30px;animation: rotate 20s linear infinite}
+.about-visual::after{inset:60px;animation: rotate 14s linear infinite reverse}
+@keyframes rotate{to{transform:rotate(360deg)}}
+
+/* =====================================================
+   HISTORY
+   ===================================================== */
+.history-list{display:grid;gap:10px}
+.history-item{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 18px;background:var(--bg-elev);border:1px solid var(--border);
+  border-radius:12px;transition:all .15s;
+}
+.history-item:hover{border-color:var(--border-strong)}
+.history-meta{display:flex;align-items:center;gap:12px;min-width:0}
+.history-ip{font-family:'JetBrains Mono', monospace;font-weight:600;font-size:14px}
+.history-loc{font-size:13px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.history-actions{display:flex;gap:6px;flex-shrink:0}
+.history-empty{text-align:center;color:var(--text-muted);padding:40px;font-size:14px}
+
+/* =====================================================
+   CONTACT
+   ===================================================== */
+.contact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
+.contact-card{
+  padding:28px;background: var(--surface);border:1px solid var(--border);border-radius:18px;
+  display:flex;align-items:flex-start;gap:16px;transition:all .2s;
+}
+.contact-card:hover{border-color:var(--border-strong);transform:translateY(-2px)}
+.contact-icon{
+  width:46px;height:46px;border-radius:12px;flex-shrink:0;
+  background:var(--gradient-primary);display:grid;place-items:center;color:#fff;
+}
+.contact-icon svg{width:22px;height:22px}
+.contact-card h4{margin:0 0 4px;font-size:13px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1.2px;font-weight:600}
+.contact-card a, .contact-card p{margin:0;font-size:15px;font-weight:500;word-break:break-word}
+.contact-card a:hover{color:var(--primary)}
+
+/* =====================================================
+   FOOTER
+   ===================================================== */
+.footer{
+  border-top:1px solid var(--border);margin-top:80px;
+  padding:48px 0 24px;background: color-mix(in oklab, var(--bg-elev) 70%, transparent);
+}
+.footer-grid{
+  display:grid;grid-template-columns: 2fr 1fr 1fr;gap:32px;margin-bottom:32px;
+}
+@media(max-width:760px){.footer-grid{grid-template-columns:1fr}}
+.footer-brand p{color:var(--text-dim);font-size:14px;margin:12px 0 0;max-width:380px}
+.footer h5{font-size:13px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text);margin:0 0 14px;font-weight:600}
+.footer ul{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.footer ul a, .footer ul li{color:var(--text-dim);font-size:14px;transition:color .15s}
+.footer ul a:hover{color:var(--primary)}
+.footer-bottom{
+  border-top:1px solid var(--border);padding-top:20px;
+  display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+  font-size:13px;color:var(--text-muted);
+}
+
+/* Toast */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(120%);
+  background: var(--surface);border:1px solid var(--border-strong);
+  color:var(--text);padding:14px 22px;border-radius:12px;
+  display:flex;align-items:center;gap:10px;font-size:14px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.4);
+  transition: transform .3s cubic-bezier(.2,.8,.2,1);z-index:100;
+}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast svg{width:18px;height:18px;color:var(--success)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--surface-2);border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:var(--border-strong)}
+</style>
+<script defer="" src="/__l5e/events.js" data-artifact-kind="live_preview" data-artifact-id="77ffc07744e34a6296882d6334391be876f50f4c" data-commit-sha="77ffc07744e34a6296882d6334391be876f50f4c" data-context-token="v1.eyJwcm9qZWN0X2lkIjoiMGFlYjk4MTQtYWFhMS00NGIzLWI5MTgtYTljNTI4ZWY2OWIwIiwiYXJ0aWZhY3Rfa2luZCI6ImxpdmVfcHJldmlldyIsImFydGlmYWN0X2lkIjoiNzdmZmMwNzc0NGUzNGE2Mjk2ODgyZDYzMzQzOTFiZTg3NmY1MGY0YyIsImNvbW1pdF9zaGEiOiI3N2ZmYzA3NzQ0ZTM0YTYyOTY4ODJkNjMzNDM5MWJlODc2ZjUwZjRjIiwiZXhwIjoxNzgxOTg3MDA3fQ.8PoVCmYgTA8O4irLMvbVr1Z136rHXxU6ea53XRN_HcE" data-replay="rrweb" data-replay-sample-rate="1" data-replay-crash-sample-rate="1" data-replay-url="/__l5e/replay" data-replay-script-url="/__l5e/rrweb-record.js?__l5e_v=0.1.2-error-event-hardening"></script><script async="" src="/__l5e/rrweb-record.js?__l5e_v=0.1.2-error-event-hardening"></script></head>
+<body>
+
+<!-- ===================== HEADER ===================== -->
+<header class="header">
+  <div class="container header-inner">
+    <a href="#top" class="brand" aria-label="mbee CyberShield home">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-name">mbee CyberShield</span>
+        <span class="brand-tag">Network Intelligence</span>
+      </div>
+    </a>
+
+    <nav class="nav" aria-label="Primary">
+      <a href="#scanner">Scanner</a>
+      <a href="#features">Features</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+    </nav>
+
+    <div class="nav-meta">
+      <span class="contact-chip" title="Support email">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-10 5L2 7"></path></svg>
+        mbeecybershield@gmail.com
+      </span>
+      <button class="theme-toggle" id="downloadPageBtn" aria-label="Download page as HTML" title="Download as HTML">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+      </button>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+        <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ===================== HERO ===================== -->
+  <section class="hero container">
+    <div class="eyebrow">
+      <span class="pulse-dot"></span>
+      <span>Live Network Intelligence</span>
+    </div>
+    <h1>Decode any IP address with <span class="gradient">precision intelligence</span></h1>
+    <p class="lead">
+      mbee CyberShield's enterprise-grade scanner reveals geolocation, ISP, ASN, and infrastructure data for any IPv4 or IPv6 address — instantly.
+    </p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <a href="#scanner" class="btn btn-primary">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+        Start Scanning
+      </a>
+      <a href="#features" class="btn btn-secondary">Explore Features</a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat"><span class="stat-num">99.9%</span><span class="stat-lbl">Uptime</span></div>
+      <div class="stat"><span class="stat-num">&lt;1s</span><span class="stat-lbl">Avg Scan</span></div>
+      <div class="stat"><span class="stat-num">IPv4/v6</span><span class="stat-lbl">Supported</span></div>
+      <div class="stat"><span class="stat-num">200+</span><span class="stat-lbl">Countries</span></div>
+    </div>
+  </section>
+
+  <!-- ===================== SCANNER ===================== -->
+  <section class="scanner container" id="scanner">
+    <div class="scanner-card">
+      <div class="scanner-header">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path><circle cx="12" cy="12" r="10"></circle></svg>
+        <span class="scanner-title">IP Intelligence Console</span>
+        <span class="scanner-status"><span class="pulse-dot"></span>System Online</span>
+      </div>
+
+      <form class="scan-form" id="scanForm" autocomplete="off">
+        <div class="input-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+          <input type="text" id="ipInput" class="scan-input mono" placeholder="Enter IPv4 or IPv6 (e.g. 8.8.8.8) — leave blank for your IP" spellcheck="false" autocapitalize="off" aria-label="IP address to scan">
+        </div>
+        <button type="submit" class="btn btn-primary" id="scanBtn">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 21l-4.3-4.3"></path><circle cx="11" cy="11" r="8"></circle></svg>
+          Scan IP
+        </button>
+      </form>
+
+      <div class="examples">
+        <span>Try:</span>
+        <button type="button" class="example-chip" data-ip="8.8.8.8">8.8.8.8</button>
+        <button type="button" class="example-chip" data-ip="1.1.1.1">1.1.1.1</button>
+        <button type="button" class="example-chip" data-ip="208.67.222.222">208.67.222.222</button>
+        <button type="button" class="example-chip" data-ip="2606:4700:4700::1111">2606:4700:4700::1111</button>
+      </div>
+
+      <div class="error-msg" id="errorMsg" role="alert">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        <span id="errorText"></span>
+      </div>
+
+      <!-- Loader -->
+      <div class="loader" id="loader" aria-live="polite">
+        <div class="scanner-anim">
+          <div class="core">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          </div>
+        </div>
+        <div class="loader-text">
+          <div>SCANNING TARGET<span class="blink">_</span></div>
+          <div style="margin-top:6px;color:var(--text-muted)">Querying global intelligence network…</div>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div class="results show" id="results">
+        <div class="results-header">
+          <div class="results-ip">
+            <span class="results-ip-badge" id="ipVersion">IPv4</span>
+            <span class="results-ip-val" id="ipValue">1.1.1.1</span>
+          </div>
+          <div class="results-actions">
+            <button class="btn btn-ghost" id="copyBtn"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>Copy Results</button>
+            <button class="btn btn-ghost" id="pdfBtn"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path></svg>Export PDF</button>
+            <button class="btn btn-ghost" id="resetBtn"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path></svg>Scan Another</button>
+          </div>
+        </div>
+
+        <div class="result-grid" id="quickGrid">
+    <div class="info-card">
+      <div class="info-card-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+        Country
+      </div>
+      <div class="info-card-val"> Australia</div>
+    </div>
+  
+    <div class="info-card">
+      <div class="info-card-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"></path></svg>
+        City
+      </div>
+      <div class="info-card-val">Sydney</div>
+    </div>
+  
+    <div class="info-card">
+      <div class="info-card-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect></svg>
+        Region
+      </div>
+      <div class="info-card-val">New South Wales</div>
+    </div>
+  
+    <div class="info-card">
+      <div class="info-card-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+        ISP
+      </div>
+      <div class="info-card-val">Cloudflare, Inc.</div>
+    </div>
+  </div>
+
+        <div class="result-section-title">Network Details</div>
+        <table class="result-table" id="detailTable"><tbody><tr><th>IP Address</th><td>1.1.1.1</td></tr><tr><th>Type</th><td>IPv4</td></tr><tr><th>Country</th><td>Australia (AU)</td></tr><tr><th>Region / State</th><td>New South Wales</td></tr><tr><th>City</th><td>Sydney</td></tr><tr><th>Postal Code</th><td>2000</td></tr><tr><th>Latitude</th><td>-33.859336</td></tr><tr><th>Longitude</th><td>151.203624</td></tr><tr><th>Time Zone</th><td>Australia/Sydney</td></tr><tr><th>UTC Offset</th><td>+1000</td></tr><tr><th>Current Time</th><td>—</td></tr><tr><th>ISP</th><td>Cloudflare, Inc.</td></tr><tr><th>Organization</th><td>Cloudflare, Inc.</td></tr><tr><th>Domain</th><td>—</td></tr><tr><th>ASN</th><td>ASAS13335</td></tr><tr><th>Currency</th><td>—</td></tr><tr><th>Calling Code</th><td>—</td></tr></tbody></table>
+
+        <div class="result-section-title">Geolocation Map</div>
+        <div id="map" aria-label="Map showing IP geolocation" class="leaflet-container leaflet-touch leaflet-retina leaflet-fade-anim leaflet-grab leaflet-touch-drag leaflet-touch-zoom" tabindex="0" style="position: relative;"><div class="leaflet-pane leaflet-map-pane" style="transform: translate3d(0px, 0px, 0px);"><div class="leaflet-pane leaflet-tile-pane"><div class="leaflet-layer " style="z-index: 1; opacity: 1;"><div class="leaflet-tile-container leaflet-zoom-animated" style="z-index: 18; transform: translate3d(0px, 0px, 0px) scale(1);"><img alt="" src="https://c.basemaps.cartocdn.com/dark_all/9/470/306@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(-146px, -156px, 0px); opacity: 1;"><img alt="" src="https://a.basemaps.cartocdn.com/dark_all/9/471/306@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(110px, -156px, 0px); opacity: 1;"><img alt="" src="https://a.basemaps.cartocdn.com/dark_all/9/470/307@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(-146px, 100px, 0px); opacity: 1;"><img alt="" src="https://b.basemaps.cartocdn.com/dark_all/9/471/307@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(110px, 100px, 0px); opacity: 1;"></div></div></div><div class="leaflet-pane leaflet-overlay-pane"></div><div class="leaflet-pane leaflet-shadow-pane"><img src="https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png" class="leaflet-marker-shadow leaflet-zoom-animated" alt="" style="margin-left: -12px; margin-top: -41px; width: 41px; height: 41px; transform: translate3d(122px, 159px, 0px);"></div><div class="leaflet-pane leaflet-marker-pane"><img src="https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png" class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" alt="Marker" tabindex="0" role="button" style="margin-left: -12px; margin-top: -41px; width: 25px; height: 41px; transform: translate3d(122px, 159px, 0px); z-index: 159;"></div><div class="leaflet-pane leaflet-tooltip-pane"></div><div class="leaflet-pane leaflet-popup-pane"><div class="leaflet-popup  leaflet-zoom-animated" style="opacity: 1; transform: translate3d(123px, 125px, 0px); bottom: -7px; left: -72px;"><div class="leaflet-popup-content-wrapper"><div class="leaflet-popup-content" style="width: 98px;"><b>1.1.1.1</b><br>Sydney, Australia</div></div><div class="leaflet-popup-tip-container"><div class="leaflet-popup-tip"></div></div><a class="leaflet-popup-close-button" role="button" aria-label="Close popup" href="#close"><span aria-hidden="true">×</span></a></div></div><div class="leaflet-proxy leaflet-zoom-animated" style="transform: translate3d(120588px, 78651.1px, 0px) scale(256);"></div></div><div class="leaflet-control-container"><div class="leaflet-top leaflet-left"><div class="leaflet-control-zoom leaflet-bar leaflet-control"><a class="leaflet-control-zoom-in" href="#" title="Zoom in" role="button" aria-label="Zoom in" aria-disabled="false"><span aria-hidden="true">+</span></a><a class="leaflet-control-zoom-out" href="#" title="Zoom out" role="button" aria-label="Zoom out" aria-disabled="false"><span aria-hidden="true">−</span></a></div></div><div class="leaflet-top leaflet-right"></div><div class="leaflet-bottom leaflet-left"></div><div class="leaflet-bottom leaflet-right"><div class="leaflet-control-attribution leaflet-control"><a href="https://leafletjs.com" title="A JavaScript library for interactive maps"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8" class="leaflet-attribution-flag"><path fill="#4C7BE1" d="M0 0h12v4H0z"></path><path fill="#FFD500" d="M0 4h12v3H0z"></path><path fill="#E0BC00" d="M0 7h12v1H0z"></path></svg> Leaflet</a> <span aria-hidden="true">|</span> © OpenStreetMap © CARTO</div></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FEATURES ===================== -->
+  <section class="section container" id="features">
+    <div class="section-head">
+      <div class="eyebrow"><span class="pulse-dot"></span><span>Capabilities</span></div>
+      <h2>Built for security professionals</h2>
+      <p>Every scan is enriched with multi-source intelligence — from infrastructure mapping to threat-context geolocation.</p>
+    </div>
+    <div class="feature-grid">
+      <div class="feature">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></div>
+        <h3>Precision Geolocation</h3>
+        <p>Pinpoint country, region, city, and exact coordinates with high accuracy across IPv4 and IPv6 networks.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg></div>
+        <h3>ASN &amp; ISP Intelligence</h3>
+        <p>Identify autonomous systems, hosting providers, and organizational ownership behind every IP address.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></div>
+        <h3>Real-Time Response</h3>
+        <p>Sub-second scans powered by globally distributed infrastructure — no delays, no rate-limited surprises.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div>
+        <h3>Zero Tracking</h3>
+        <p>Your scan history stays in your browser. We don't log queries, build profiles, or sell intelligence data.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><line x1="9" y1="15" x2="15" y2="15"></line></svg></div>
+        <h3>Exportable Reports</h3>
+        <p>One-click PDF and clipboard export for compliance documentation, incident reports, and audit trails.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg></div>
+        <h3>Interactive Mapping</h3>
+        <p>Visualize IP origin on a live world map with infrastructure context and regional intelligence overlays.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== HISTORY ===================== -->
+  <section class="section container">
+    <div class="section-head">
+      <div class="eyebrow"><span class="pulse-dot"></span><span>Local Session</span></div>
+      <h2>Recent Scans</h2>
+      <p>Your last 10 lookups, stored privately in your browser.</p>
+    </div>
+    <div id="historyList" class="history-list">
+    <div class="history-item">
+      <div class="history-meta">
+        <span class="history-ip">1.1.1.1</span>
+        <span class="history-loc">Sydney, Australia</span>
+      </div>
+      <div class="history-actions">
+        <button class="btn btn-ghost" data-rescan="1.1.1.1">Rescan</button>
+      </div>
+    </div>
+  </div>
+  </section>
+
+  <!-- ===================== ABOUT ===================== -->
+  <section class="section container" id="about">
+    <div class="about">
+      <div>
+        <div class="eyebrow"><span class="pulse-dot"></span><span>About mbee CyberShield</span></div>
+        <h2>Defending digital infrastructure with intelligence-driven security.</h2>
+        <p>mbee CyberShield is a cybersecurity company specializing in network intelligence, threat analysis, and digital security solutions. We empower organizations and individuals with the tools to understand, monitor, and defend their digital perimeters.</p>
+        <p>From IP reconnaissance to enterprise threat modeling, our platform delivers actionable intelligence trusted by security professionals worldwide.</p>
+        <ul class="about-list">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Network reconnaissance &amp; IP intelligence</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Threat detection &amp; digital forensics</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Enterprise security consulting</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Privacy-first architecture</li>
+        </ul>
+      </div>
+      <div class="about-visual">
+        <div class="shield-vis">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CONTACT ===================== -->
+  <section class="section container" id="contact">
+    <div class="section-head">
+      <div class="eyebrow"><span class="pulse-dot"></span><span>Get in touch</span></div>
+      <h2>Talk to our security team</h2>
+      <p>Have a question, partnership inquiry, or security incident? We're here to help.</p>
+    </div>
+    <div class="contact-grid">
+      <a class="contact-card" href="mailto:mbeecybershield@gmail.com">
+        <div class="contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-10 5L2 7"></path></svg></div>
+        <div><h4>Email</h4><span>mbeecybershield@gmail.com</span></div>
+      </a>
+      <a class="contact-card" href="tel:+2348137993502">
+        <div class="contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></div>
+        <div><h4>Phone</h4><span>+234 813 799 3502</span></div>
+      </a>
+      <div class="contact-card">
+        <div class="contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg></div>
+        <div><h4>Hours</h4><p>24/7 Security Operations</p></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ===================== FOOTER ===================== -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="brand">
+          <div class="logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+          </div>
+          <div class="brand-text">
+            <span class="brand-name">mbee CyberShield</span>
+            <span class="brand-tag">Network Intelligence</span>
+          </div>
+        </div>
+        <p>Intelligence-driven cybersecurity for the digital perimeter. Network reconnaissance, threat analysis, and security solutions built for professionals.</p>
+      </div>
+      <div>
+        <h5>Platform</h5>
+        <ul>
+          <li><a href="#scanner">IP Scanner</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#about">About</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Contact</h5>
+        <ul>
+          <li><a href="mailto:mbeecybershield@gmail.com">mbeecybershield@gmail.com</a></li>
+          <li><a href="tel:+2348137993502">+234 813 799 3502</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="year">2026</span> mbee CyberShield. All rights reserved.</span>
+      <span>Built with intelligence. Secured by design.</span>
+    </div>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+  <span id="toastMsg">Copied to clipboard</span>
+</div>
+
+<script>
+/* =====================================================
+   mbee CyberShield — Application Logic
+   ===================================================== */
+
+// --- Theme ---
+const themeToggle = document.getElementById('themeToggle');
+const themeIcon = document.getElementById('themeIcon');
+const SUN = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>';
+const MOON = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  themeIcon.innerHTML = t === 'dark' ? SUN : MOON;
+  localStorage.setItem('mbee_theme', t);
+}
+applyTheme(localStorage.getItem('mbee_theme') || 'dark');
+themeToggle.addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+});
+
+// --- Year ---
+document.getElementById('year').textContent = new Date().getFullYear();
+
+// --- IP Validation ---
+const IPV4_RE = /^(25[0-5]|2[0-4]\d|[01]?\d?\d)(\.(25[0-5]|2[0-4]\d|[01]?\d?\d)){3}$/;
+const IPV6_RE = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|::)$/;
+function validateIP(ip){
+  if(!ip) return { valid: true, version: null };
+  if(IPV4_RE.test(ip)) return { valid:true, version:'IPv4' };
+  if(IPV6_RE.test(ip)) return { valid:true, version:'IPv6' };
+  return { valid:false };
+}
+
+// --- Elements ---
+const form = document.getElementById('scanForm');
+const input = document.getElementById('ipInput');
+const scanBtn = document.getElementById('scanBtn');
+const loader = document.getElementById('loader');
+const results = document.getElementById('results');
+const errorMsg = document.getElementById('errorMsg');
+const errorText = document.getElementById('errorText');
+const quickGrid = document.getElementById('quickGrid');
+const detailTable = document.getElementById('detailTable');
+const ipVersionEl = document.getElementById('ipVersion');
+const ipValueEl = document.getElementById('ipValue');
+const toast = document.getElementById('toast');
+const toastMsg = document.getElementById('toastMsg');
+
+let currentData = null;
+let map = null;
+let mapMarker = null;
+
+// --- Error helpers ---
+function showError(msg){
+  errorText.textContent = msg;
+  errorMsg.classList.add('show');
+}
+function clearError(){ errorMsg.classList.remove('show'); }
+
+// --- Toast ---
+function showToast(msg){
+  toastMsg.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2400);
+}
+
+// --- Example chips ---
+document.querySelectorAll('.example-chip').forEach(c => {
+  c.addEventListener('click', () => {
+    input.value = c.dataset.ip;
+    form.dispatchEvent(new Event('submit', { cancelable:true }));
+  });
+});
+
+// --- Scan ---
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearError();
+  const ip = input.value.trim();
+  const v = validateIP(ip);
+  if(!v.valid){
+    showError('Invalid IP address format. Please enter a valid IPv4 or IPv6 address.');
+    return;
+  }
+
+  results.classList.remove('show');
+  loader.classList.add('show');
+  scanBtn.disabled = true;
+
+  try {
+    const data = await lookupIP(ip);
+    currentData = data;
+    renderResults(data);
+    saveHistory(data);
+  } catch(err){
+    showError(err.message || 'Scan failed. Please check your connection and try again.');
+  } finally {
+    loader.classList.remove('show');
+    scanBtn.disabled = false;
+  }
+});
+
+// --- IP Lookup with multi-provider fallback ---
+async function lookupIP(ip){
+  const errors = [];
+  const providers = [
+    {
+      name: 'ipwho.is',
+      url: ip ? `https://ipwho.is/${encodeURIComponent(ip)}` : `https://ipwho.is/`,
+      parse: (d) => {
+        if(d.success === false) throw new Error(d.message || 'Lookup failed');
+        return d;
+      }
+    },
+    {
+      name: 'ipapi.co',
+      url: ip ? `https://ipapi.co/${encodeURIComponent(ip)}/json/` : `https://ipapi.co/json/`,
+      parse: (d) => {
+        if(d.error) throw new Error(d.reason || 'Lookup failed');
+        return {
+          ip: d.ip,
+          type: d.version,
+          country: d.country_name,
+          country_code: d.country_code,
+          region: d.region,
+          city: d.city,
+          postal: d.postal,
+          latitude: d.latitude,
+          longitude: d.longitude,
+          flag: { emoji: '' },
+          timezone: { id: d.timezone, utc: d.utc_offset, current_time: '' },
+          connection: { isp: d.org, org: d.org, asn: d.asn, domain: '' }
+        };
+      }
+    },
+    {
+      name: 'ipapi.is',
+      url: ip ? `https://api.ipapi.is/?q=${encodeURIComponent(ip)}` : `https://api.ipapi.is/`,
+      parse: (d) => {
+        if(d.error) throw new Error(d.error);
+        const loc = d.location || {};
+        return {
+          ip: d.ip,
+          type: (d.ip||'').includes(':') ? 'IPv6' : 'IPv4',
+          country: loc.country,
+          country_code: loc.country_code,
+          region: loc.state,
+          city: loc.city,
+          postal: loc.zip,
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          flag: { emoji: '' },
+          timezone: { id: loc.timezone, utc: '', current_time: loc.local_time },
+          connection: {
+            isp: d.company?.name || d.asn?.org,
+            org: d.company?.name,
+            asn: d.asn?.asn,
+            domain: d.company?.domain || ''
+          }
+        };
+      }
+    }
+  ];
+
+  for(const p of providers){
+    try {
+      const res = await fetch(p.url, { cache: 'no-store' });
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      return p.parse(json);
+    } catch(e){
+      errors.push(`${p.name}: ${e.message}`);
+    }
+  }
+  throw new Error(`All lookup providers failed. ${errors.join(' | ')}`);
+}
+
+
+// --- Render ---
+function renderResults(d){
+  const isV6 = (d.type || '').toLowerCase().includes('6') || (d.ip||'').includes(':');
+  ipVersionEl.textContent = isV6 ? 'IPv6' : 'IPv4';
+  ipValueEl.textContent = d.ip || '—';
+
+  const quick = [
+    { label:'Country', value: `${d.flag?.emoji || ''} ${d.country || '—'}`, icon:'<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>' },
+    { label:'City', value: d.city || '—', icon:'<path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/>' },
+    { label:'Region', value: d.region || '—', icon:'<rect x="3" y="3" width="18" height="18" rx="2"/>' },
+    { label:'ISP', value: d.connection?.isp || '—', icon:'<path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>' },
+  ];
+  quickGrid.innerHTML = quick.map(q => `
+    <div class="info-card">
+      <div class="info-card-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${q.icon}</svg>
+        ${q.label}
+      </div>
+      <div class="info-card-val">${escapeHtml(q.value)}</div>
+    </div>
+  `).join('');
+
+  const rows = [
+    ['IP Address', d.ip],
+    ['Type', d.type || (isV6?'IPv6':'IPv4')],
+    ['Country', `${d.country || '—'} (${d.country_code || '—'})`],
+    ['Region / State', d.region || '—'],
+    ['City', d.city || '—'],
+    ['Postal Code', d.postal || '—'],
+    ['Latitude', d.latitude ?? '—'],
+    ['Longitude', d.longitude ?? '—'],
+    ['Time Zone', d.timezone?.id || '—'],
+    ['UTC Offset', d.timezone?.utc || '—'],
+    ['Current Time', d.timezone?.current_time || '—'],
+    ['ISP', d.connection?.isp || '—'],
+    ['Organization', d.connection?.org || '—'],
+    ['Domain', d.connection?.domain || '—'],
+    ['ASN', d.connection?.asn ? `AS${d.connection.asn}` : '—'],
+    ['Currency', d.currency?.name ? `${d.currency.name} (${d.currency.code})` : '—'],
+    ['Calling Code', d.calling_code ? `+${d.calling_code}` : '—'],
+  ];
+  detailTable.innerHTML = rows.map(([k,v]) => `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(String(v))}</td></tr>`).join('');
+
+  results.classList.add('show');
+  // Map
+  if(d.latitude && d.longitude){
+    setTimeout(() => initMap(d.latitude, d.longitude, d), 100);
+  }
+  setTimeout(() => results.scrollIntoView({ behavior:'smooth', block:'start' }), 200);
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// --- Map ---
+function initMap(lat, lng, d){
+  if(typeof L === 'undefined') return;
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  if(!map){
+    map = L.map('map', { zoomControl: true, scrollWheelZoom:false }).setView([lat, lng], 9);
+  } else {
+    map.setView([lat, lng], 9);
+    if(mapMarker) mapMarker.remove();
+    map.eachLayer(l => { if(l instanceof L.TileLayer) map.removeLayer(l); });
+  }
+  const tileUrl = isDark
+    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+  L.tileLayer(tileUrl, { attribution:'© OpenStreetMap © CARTO', maxZoom:18 }).addTo(map);
+  mapMarker = L.marker([lat, lng]).addTo(map)
+    .bindPopup(`<b>${escapeHtml(d.ip)}</b><br>${escapeHtml((d.city||'') + ', ' + (d.country||''))}`)
+    .openPopup();
+  setTimeout(() => map.invalidateSize(), 200);
+}
+
+// --- Copy ---
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  if(!currentData) return;
+  const d = currentData;
+  const text = [
+    `mbee CyberShield — IP Scan Report`,
+    `Generated: ${new Date().toLocaleString()}`,
+    ``,
+    `IP Address: ${d.ip}`,
+    `Type: ${d.type || ''}`,
+    `Country: ${d.country} (${d.country_code})`,
+    `Region: ${d.region}`,
+    `City: ${d.city}`,
+    `Postal: ${d.postal || ''}`,
+    `Latitude: ${d.latitude}`,
+    `Longitude: ${d.longitude}`,
+    `Time Zone: ${d.timezone?.id || ''}`,
+    `ISP: ${d.connection?.isp || ''}`,
+    `Organization: ${d.connection?.org || ''}`,
+    `ASN: ${d.connection?.asn ? 'AS' + d.connection.asn : ''}`,
+  ].join('\n');
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('Results copied to clipboard');
+  } catch {
+    showToast('Copy failed');
+  }
+});
+
+// --- PDF ---
+document.getElementById('pdfBtn').addEventListener('click', () => {
+  if(!currentData || !window.jspdf) { showToast('PDF library loading…'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const d = currentData;
+  doc.setFillColor(11,17,32); doc.rect(0,0,210,30,'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(18); doc.text('mbee CyberShield', 14, 14);
+  doc.setFontSize(10); doc.text('IP Intelligence Report', 14, 22);
+  doc.setTextColor(40,40,40); doc.setFontSize(11);
+  let y = 42;
+  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, y); y+=10;
+  doc.setFontSize(14); doc.text(`IP: ${d.ip}`, 14, y); y+=10;
+  doc.setFontSize(11);
+  const rows = [
+    ['Type', d.type], ['Country', `${d.country} (${d.country_code})`],
+    ['Region', d.region], ['City', d.city], ['Postal', d.postal],
+    ['Latitude', d.latitude], ['Longitude', d.longitude],
+    ['Time Zone', d.timezone?.id], ['UTC Offset', d.timezone?.utc],
+    ['ISP', d.connection?.isp], ['Organization', d.connection?.org],
+    ['ASN', d.connection?.asn ? 'AS'+d.connection.asn : ''],
+  ];
+  rows.forEach(([k,v]) => {
+    doc.setFont(undefined,'bold'); doc.text(`${k}:`, 14, y);
+    doc.setFont(undefined,'normal'); doc.text(String(v||'—'), 60, y);
+    y += 8;
+    if(y > 270){ doc.addPage(); y = 20; }
+  });
+  doc.setFontSize(9); doc.setTextColor(120);
+  doc.text('mbee CyberShield • mbeecybershield@gmail.com • +234 813 799 3502', 14, 287);
+  doc.save(`mbee-cybershield-${d.ip}.pdf`);
+  showToast('PDF downloaded');
+});
+
+// --- Reset ---
+document.getElementById('resetBtn').addEventListener('click', () => {
+  results.classList.remove('show');
+  currentData = null;
+  input.value = '';
+  input.focus();
+  document.getElementById('scanner').scrollIntoView({ behavior:'smooth' });
+});
+
+// --- History ---
+const HISTORY_KEY = 'mbee_history';
+function saveHistory(d){
+  const list = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  const entry = { ip:d.ip, country:d.country, city:d.city, ts: Date.now() };
+  const filtered = list.filter(x => x.ip !== d.ip);
+  filtered.unshift(entry);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(filtered.slice(0,10)));
+  renderHistory();
+}
+function renderHistory(){
+  const list = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  const wrap = document.getElementById('historyList');
+  if(!list.length){
+    wrap.innerHTML = '<div class="history-empty">No scans yet. Run your first lookup above.</div>';
+    return;
+  }
+  wrap.innerHTML = list.map(h => `
+    <div class="history-item">
+      <div class="history-meta">
+        <span class="history-ip">${escapeHtml(h.ip)}</span>
+        <span class="history-loc">${escapeHtml([h.city, h.country].filter(Boolean).join(', ') || 'Unknown')}</span>
+      </div>
+      <div class="history-actions">
+        <button class="btn btn-ghost" data-rescan="${escapeHtml(h.ip)}">Rescan</button>
+      </div>
+    </div>
+  `).join('');
+  wrap.querySelectorAll('[data-rescan]').forEach(b => {
+    b.addEventListener('click', () => {
+      input.value = b.dataset.rescan;
+      form.dispatchEvent(new Event('submit', { cancelable:true }));
+    });
+  });
+}
+renderHistory();
+
+// --- Download page as standalone HTML ---
+document.getElementById('downloadPageBtn').addEventListener('click', () => {
+  const html = document.documentElement.outerHTML;
+  const blob = new Blob(['<!DOCTYPE html>\n', html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'mbee-cybershield-ip-scanner.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Page downloaded as HTML');
+});
+
+// Re-render map tiles on theme change
+new MutationObserver(() => {
+  if(currentData?.latitude) initMap(currentData.latitude, currentData.longitude, currentData);
+}).observe(document.documentElement, { attributes:true, attributeFilter:['data-theme'] });
+</script>
+
+
+</body></html>
